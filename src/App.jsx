@@ -187,6 +187,93 @@ function StaffDashboard({ onSelectPatient }) {
   )
 }
 
+function StaffPatientView({ patient, onBack }) {
+  const [tab, setTab] = useState('resumen')
+  const [showReferral, setShowReferral] = useState(false)
+
+  return (
+    <div style={{background: '#f5f7fb', minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
+      <div className="patient-view-header">
+        <div className="page-shell">
+          <div>
+            <button className="back-button" onClick={onBack}><Icon name="back" size={19} /> Volver a la agenda</button>
+            <h1 style={{fontSize: '32px', margin: '10px 0 5px'}}>{patient.name}</h1>
+            <p style={{margin: 0, color: 'var(--muted)'}}>{patient.rut} · {patient.career}</p>
+          </div>
+          <button className="inline-primary" onClick={() => setShowReferral(true)}>
+            <Icon name="activity" size={17} /> Derivar paciente
+          </button>
+        </div>
+      </div>
+
+      <main className="page-shell">
+        <div className="patient-tabs">
+          <button className={tab === 'resumen' ? 'active' : ''} onClick={() => setTab('resumen')}>Resumen General</button>
+          <button className={tab === 'historial' ? 'active' : ''} onClick={() => setTab('historial')}>Historial Multidisciplinario</button>
+          <button className={tab === 'archivos' ? 'active' : ''} onClick={() => setTab('archivos')}>Archivos Médicos</button>
+        </div>
+
+        <div className="tab-content">
+          {tab === 'resumen' && (
+            <div>
+              <h3>Antecedentes del Estudiante</h3>
+              <div className="data-grid">
+                <div className="data-item"><small>Beneficios</small><strong>{patient.benefits}</strong></div>
+                <div className="data-item"><small>Previsión de Salud</small><strong>{patient.health}</strong></div>
+                <div className="data-item"><small>Condiciones Crónicas</small><strong>{patient.conditions}</strong></div>
+                <div className="data-item"><small>Medicamentos Actuales</small><strong>{patient.meds}</strong></div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'historial' && (
+            <div>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
+                <h3>Atenciones en otros servicios</h3>
+                <span className="prototype-note" style={{marginTop: 0, padding: '6px 12px'}}><Icon name="shield" size={14}/> Acceso restringido autorizado</span>
+              </div>
+              <div className="history-list">
+                {PATIENT_HISTORY.map(record => (
+                  <article key={record.id} style={{alignItems: 'start'}}>
+                    <span className="history-date" style={{background: '#f0eafd', color: '#7048c8'}}>
+                      <strong>{record.date.split(' ')[0]}</strong><small>{record.date.split(' ')[1]}</small>
+                    </span>
+                    <div>
+                      <h2>{record.service}</h2>
+                      <p style={{marginBottom: '6px'}}>{record.professional}</p>
+                      <div className="booking-note" style={{background: '#fff', border: '1px solid #edf0f5'}}>{record.notes}</div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === 'archivos' && (
+            <div>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <h3>Documentos Clínicos Compartidos</h3>
+                <button className="text-button" style={{color: 'var(--blue)'}}>+ Subir archivo</button>
+              </div>
+              <div className="files-grid">
+                {PATIENT_FILES.map(file => (
+                  <div key={file.id} className="file-card">
+                    <div className="file-icon"><Icon name="file" size={24} /></div>
+                    <strong style={{display: 'block', fontSize: '12.5px', marginBottom: '4px', wordBreak: 'break-all'}}>{file.name}</strong>
+                    <small style={{color: 'var(--muted)', fontSize: '11px'}}>{file.date} · {file.size}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+      
+      {showReferral && <ReferralModal onClose={() => setShowReferral(false)} onConfirm={() => { alert('Derivación interna enviada exitosamente'); setShowReferral(false) }} />}
+    </div>
+  )
+}
+
 function StaffFlow() {
   const [view, setView] = useState('dashboard')
   const [patient, setPatient] = useState(null)
