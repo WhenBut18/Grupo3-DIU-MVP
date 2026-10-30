@@ -156,6 +156,60 @@ function SuccessToast({ booking, onClose }) {
   return <div className="toast" role="status"><span><Icon name="check" size={19} strokeWidth={2.5} /></span><div><strong>Hora reservada</strong><p>{booking.dateShort} · {booking.time} hrs.</p></div><button onClick={onClose} aria-label="Cerrar">×</button></div>
 }
 
+function StaffDashboard({ onSelectPatient }) {
+  return (
+    <main className="page-shell staff-dashboard">
+      <div className="page-heading">
+        <span className="eyebrow">SEPTIEMBRE 8, 2026</span>
+        <h1>Agenda del día</h1>
+        <p>Tienes {PATIENTS_TODAY.filter(p => p.status === 'pending').length} pacientes pendientes hoy en Edificio F.</p>
+      </div>
+      <div className="patient-list">
+        {PATIENTS_TODAY.map(patient => (
+          <article key={patient.id} className="patient-card" onClick={() => onSelectPatient(patient)}>
+            <div className="patient-info">
+              <span className="patient-time">{patient.time}</span>
+              <div className="patient-details">
+                <h3>{patient.name}</h3>
+                <p>{patient.rut} · {patient.career}</p>
+              </div>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+              <span className={`status-badge ${patient.status}`}>
+                {patient.status === 'pending' ? 'Por Atender' : 'Atendido'}
+              </span>
+              <Icon name="chevron" color="#8795a7" />
+            </div>
+          </article>
+        ))}
+      </div>
+    </main>
+  )
+}
+
+function StaffFlow() {
+  const [view, setView] = useState('dashboard')
+  const [patient, setPatient] = useState(null)
+
+  // Nota: StaffPatientView será agregado en el Commit 3. Por ahora dejamos el esqueleto.
+  if (view === 'patient' && patient) {
+    return (
+      <div className="page-shell" style={{paddingTop: '40px'}}>
+        <button className="back-button" onClick={() => { setView('dashboard'); setPatient(null); window.scrollTo(0,0) }}>
+          <Icon name="back" size={19} /> Volver a la agenda
+        </button>
+        <h2>Cargando ficha de {patient.name}...</h2>
+        <p>Esta vista será implementada en el siguiente commit.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="app">
+      <StaffDashboard onSelectPatient={(p) => { setPatient(p); setView('patient'); window.scrollTo(0,0) }} />
+    </div>
+  )
+}
+
 export default function App() {
   const [role, setRole] = useState('student')
   const [view, setView] = useState('dashboard'); const [section, setSection] = useState('home'); const [service, setService] = useState(null); const [professional, setProfessional] = useState(null); const [toastBooking, setToastBooking] = useState(null)
