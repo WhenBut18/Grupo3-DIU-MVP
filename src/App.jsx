@@ -53,6 +53,25 @@ const DAYS = [
 
 const TIMES = ['09:00', '09:45', '10:30', '11:15', '12:00', '14:30', '15:15', '16:00']
 
+// Mock Data para Funcionario
+const STAFF_USER = { name: 'Dra. Fernanda Zamora', initials: 'FZ', role: 'Cirujana dentista' }
+
+const PATIENTS_TODAY = [
+  { id: 'p1', time: '09:00', name: 'Axel González', rut: '20.123.456-7', status: 'pending', career: 'Ingeniería Civil en Informática', benefits: 'Gratuidad', health: 'Fonasa B', conditions: 'Hipertensión leve', meds: 'Losartán 50mg' },
+  { id: 'p2', time: '09:45', name: 'Samira Estay', rut: '21.345.678-9', status: 'attended', career: 'Arquitectura', benefits: 'Beca Bicentenario', health: 'Isapre', conditions: 'Ninguna', meds: 'Ninguno' },
+  { id: 'p3', time: '11:15', name: 'Vicente Pacheco', rut: '20.987.654-3', status: 'pending', career: 'Ingeniería Civil Electrónica', benefits: 'CAE', health: 'Fonasa C', conditions: 'Asma', meds: 'Salbutamol PRN' }
+]
+
+const PATIENT_HISTORY = [
+  { id: 1, date: '15 AGO 2026', service: 'Psicología', professional: 'Dr. Roberto Soto', notes: 'Evaluación inicial por estrés académico. Se recomienda seguimiento.' },
+  { id: 2, date: '02 JUL 2026', service: 'Servicio médico', professional: 'Dra. Javiera León', notes: 'Consulta general por cefalea. Derivación a dental sugerida.' }
+]
+
+const PATIENT_FILES = [
+  { id: 1, name: 'Radiografía_Panoramica_2026.pdf', date: '01 SEP 2026', size: '2.4 MB' },
+  { id: 2, name: 'Ficha_DAS_Ingreso.pdf', date: '15 MAR 2025', size: '1.1 MB' }
+]
+
 function Icon({ name, size = 20, strokeWidth = 1.9 }) {
   const paths = {
     heart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />,
@@ -69,6 +88,10 @@ function Icon({ name, size = 20, strokeWidth = 1.9 }) {
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 19h4"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
+    file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></>,
+    users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    folder: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>,
+    plus: <><path d="M12 5v14M5 12h14"/></>,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
@@ -77,14 +100,15 @@ function Logo() {
   return <div className="brand" aria-label="Bienestar USM"><div className="brand-mark"><span>U</span></div><div><strong>Bienestar USM</strong><small>Portal de atención estudiantil</small></div></div>
 }
 
-function AppHeader({ activeSection, bookingCount, onNavigate }) {
-  const links = [
-    { id: 'home', label: 'Inicio' },
-    { id: 'reserve', label: 'Reservar' },
-    { id: 'appointments', label: 'Mis horas' },
-    { id: 'history', label: 'Historial' },
-  ]
-  return <header className="topbar"><div className="topbar-inner"><button className="brand-button" onClick={() => onNavigate('home')}><Logo /></button><nav className="main-nav" aria-label="Navegación principal">{links.map(link => <button key={link.id} className={activeSection === link.id ? 'active' : ''} aria-current={activeSection === link.id ? 'page' : undefined} onClick={() => onNavigate(link.id)}>{link.label}{link.id === 'appointments' && bookingCount > 0 && <span className="nav-badge">{bookingCount}</span>}</button>)}</nav><div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Icon name="bell" /></button><div className="profile"><span className="profile-avatar">{USER.initials}</span><span className="profile-copy"><strong>{USER.name}</strong><small>Estudiante</small></span></div></div></div></header>
+function AppHeader({ activeSection, bookingCount, onNavigate, role, onToggleRole }) {
+  const isStaff = role === 'staff'
+  const links = isStaff
+    ? [{ id: 'dashboard', label: 'Agenda Diaria' }, { id: 'patients', label: 'Pacientes' }]
+    : [{ id: 'home', label: 'Inicio' }, { id: 'reserve', label: 'Reservar' }, { id: 'appointments', label: 'Mis horas' }, { id: 'history', label: 'Historial' }]
+
+  const profileData = isStaff ? STAFF_USER : USER
+
+  return <header className="topbar"><div className="topbar-inner"><button className="brand-button" onClick={() => onNavigate(isStaff ? 'dashboard' : 'home')}><Logo /></button><nav className="main-nav" aria-label="Navegación principal">{links.map(link => <button key={link.id} className={activeSection === link.id ? 'active' : ''} aria-current={activeSection === link.id ? 'page' : undefined} onClick={() => onNavigate(link.id)}>{link.label}{link.id === 'appointments' && bookingCount > 0 && <span className="nav-badge">{bookingCount}</span>}</button>)}</nav><div className="header-actions"><button onClick={onToggleRole} className="text-button" style={{color: 'var(--blue)', fontWeight: 700}}>Modo: {isStaff ? 'Funcionario' : 'Alumno'}</button><button className="icon-button" aria-label="Notificaciones"><Icon name="bell" /></button><div className="profile"><span className="profile-avatar" style={isStaff ? {background: '#7c3aed', color: '#fff'} : {}}>{profileData.initials}</span><span className="profile-copy"><strong>{profileData.name}</strong><small>{isStaff ? profileData.role : 'Estudiante'}</small></span></div></div></div></header>
 }
 
 function Progress({ step }) {
@@ -133,6 +157,7 @@ function SuccessToast({ booking, onClose }) {
 }
 
 export default function App() {
+  const [role, setRole] = useState('student')
   const [view, setView] = useState('dashboard'); const [section, setSection] = useState('home'); const [service, setService] = useState(null); const [professional, setProfessional] = useState(null); const [toastBooking, setToastBooking] = useState(null)
   const [bookings, setBookings] = useState([{ id: 101, service: 'Bienestar estudiantil', professional: 'Eliana Ponce', dateLabel: 'Jueves 10 de septiembre', dateShort: '10 sep 2026', time: '10:00' }])
   const pageTitle = useMemo(() => view === 'dashboard' ? `${section === 'home' ? 'Inicio' : section === 'reserve' ? 'Reservar' : section === 'appointments' ? 'Mis horas' : 'Historial'} · Bienestar USM` : `Reservar · ${service?.name || 'Bienestar USM'}`, [view, section, service]); document.title = pageTitle
@@ -141,5 +166,5 @@ export default function App() {
   const startBooking = selected => { setService(selected); setView('professionals'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const selectProfessional = selected => { setProfessional(selected); setView('schedule'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const confirmBooking = (day, time) => { const next = { id: Date.now(), service: service.name, professional: professional.name, dateLabel: day.label.charAt(0).toUpperCase() + day.label.slice(1), dateShort: `${day.day} sep 2026`, time }; setBookings(current => [...current, next]); setToastBooking(next); goHome() }
-  return <div className="app"><AppHeader activeSection={view === 'dashboard' ? section : 'reserve'} bookingCount={bookings.length} onNavigate={navigate} />{view === 'dashboard' && <Dashboard section={section} bookings={bookings} onStart={startBooking} onCancel={id => setBookings(current => current.filter(item => item.id !== id))} onNavigate={navigate} />}{view === 'professionals' && <ProfessionalsView service={service} onBack={() => navigate('reserve')} onSelect={selectProfessional} />}{view === 'schedule' && <ScheduleView service={service} professional={professional} onBack={() => setView('professionals')} onHome={goHome} onConfirm={confirmBooking} />}<footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer><SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} /></div>
+  return <div className="app"><AppHeader activeSection={view === 'dashboard' ? section : 'reserve'} bookingCount={bookings.length} onNavigate={navigate} role={role} onToggleRole={() => { setRole(role === 'student' ? 'staff' : 'student'); setView('dashboard'); setSection('home') }} />{view === 'dashboard' && <Dashboard section={section} bookings={bookings} onStart={startBooking} onCancel={id => setBookings(current => current.filter(item => item.id !== id))} onNavigate={navigate} />}{view === 'professionals' && <ProfessionalsView service={service} onBack={() => navigate('reserve')} onSelect={selectProfessional} />}{view === 'schedule' && <ScheduleView service={service} professional={professional} onBack={() => setView('professionals')} onHome={goHome} onConfirm={confirmBooking} />}<footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer><SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} /></div>
 }
