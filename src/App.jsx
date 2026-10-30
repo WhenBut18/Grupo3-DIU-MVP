@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const USER = { name: 'Gabriel Lira', firstName: 'Gabriel' }
 
@@ -514,6 +514,331 @@ export default function App() {
       {role === 'student' && <footer><span>Prototipo de reservas · Proyecto 3</span></footer>}
       <CancelBookingModal booking={cancelTarget} onKeep={() => setCancelTarget(null)} onConfirm={() => { setBookings(current => current.filter(item => item.id !== cancelTarget.id)); setCancelTarget(null) }} />
       <SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} />
+    </div>
+  )
+}
+
+// === MODO ADMINISTRADOR (/admin) ===
+
+const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
+const formatDate = iso => { const [year, month, day] = iso.split('-'); return `${day} ${MONTHS[month - 1]} ${year}` }
+const initialsOf = name => name.replace(/^Dra?\.\s*/, '').split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase()
+const emailOf = name => `${name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(' ').join('.')}@usm.cl`
+const byId = (list, id) => list.find(item => item.id === id)
+const ATTENTION_PLACE = 'Edificio F · Campus Casa Central'
+
+const INITIAL_STAFF = SERVICES.flatMap(service => (PROFESSIONALS[service.id] || []).map(prof => ({
+  ...prof, serviceId: service.id, email: PROFILE_DETAILS[prof.id].email, phone: `+56 32 265 40${String(prof.id).padStart(2, '0')}`, bio: PROFILE_DETAILS[prof.id].bio, areas: PROFILE_DETAILS[prof.id].areas,
+})))
+
+const INITIAL_STUDENTS = [
+  { id: 'gl', name: 'Gabriel Lira', rut: '20.555.321-4', career: 'Ingeniería Civil Informática', benefits: 'Gratuidad' },
+  ...PATIENTS_TODAY.map(({ id, name, rut, career, benefits }) => ({ id, name, rut, career, benefits })),
+].map((student, i) => ({ ...student, email: emailOf(student.name), phone: `+56 9 ${7120 + i * 37} ${3400 + i * 113}` }))
+
+// Profesional que atiende a cada paciente de la agenda del funcionario
+const STAFF_PROFESSIONAL_ID = { bienestar: 1, dental: 3, psicologia: 5 }
+
+const INITIAL_APPOINTMENTS = [
+  { id: 'a1', studentId: 'gl', professionalId: 8, date: '2026-07-02', time: '11:00', status: 'done', notes: 'Consulta general por cefalea.' },
+  { id: 'a2', studentId: 'gl', professionalId: 5, date: '2026-08-15', time: '15:30', status: 'done', notes: 'Evaluación inicial por estrés académico.' },
+  { id: 'a3', studentId: 'gl', professionalId: 1, date: '2026-09-10', time: '10:00', status: 'upcoming', notes: '' },
+  ...PATIENTS_TODAY.map(p => ({ id: `a-${p.id}`, studentId: p.id, professionalId: STAFF_PROFESSIONAL_ID[p.service], date: '2026-09-08', time: p.time, status: p.status === 'attended' ? 'done' : 'upcoming', notes: '' })),
+]
+
+const sortAppointments = list => [...list].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
+
+function AdminForm({ fields, initial, onSave, onCancel }) {
+  const [values, setValues] = useState(initial)
+  const setValue = (name, value) => setValues(current => ({ ...current, [name]: value }))
+  return (
+    <form className="admin-form" onSubmit={e => { e.preventDefault(); onSave(values) }}>
+      {fields.map(field => (
+        <label key={field.name} className={field.type === 'textarea' ? 'wide' : ''}>
+          <span>{field.label}</span>
+          {field.type === 'select' ? (
+            <select value={values[field.name]} onChange={e => setValue(field.name, e.target.value)}>
+              {field.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          ) : field.type === 'textarea' ? (
+            <textarea rows="3" value={values[field.name]} onChange={e => setValue(field.name, e.target.value)} />
+          ) : (
+            <input type={field.type || 'text'} required value={values[field.name]} onChange={e => setValue(field.name, e.target.value)} />
+          )}
+        </label>
+      ))}
+      <div className="admin-form-actions">
+        <button type="submit" className="primary-button">Guardar cambios</button>
+        <button type="button" className="secondary-button" onClick={onCancel}>Cancelar</button>
+      </div>
+    </form>
+  )
+}
+
+function AdminModal({ title, onClose, children }) {
+  return (
+    <div className="profile-overlay" role="presentation" onMouseDown={onClose}>
+      <section className="profile-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Cerrar">×</button>
+        {children}
+      </section>
+    </div>
+  )
+}
+
+function AdminDeleteConfirm({ title, message, onCancel, onConfirm }) {
+  return (
+    <div className="profile-overlay admin-confirm" role="presentation" onMouseDown={onCancel}>
+      <section className="profile-modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="admin-delete-title" onMouseDown={e => e.stopPropagation()}>
+        <span className="confirm-icon"><Icon name="shield" size={24} /></span>
+        <h2 id="admin-delete-title">{title}</h2>
+        <p>{message}</p>
+        <p className="confirm-warning">Esta acción no se puede deshacer.</p>
+        <div className="confirm-actions">
+          <button className="primary-button" autoFocus onClick={onCancel}>Cancelar</button>
+          <button className="text-button danger confirm-destructive" onClick={onConfirm}>Sí, eliminar</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AdminActions({ onEdit, onDelete }) {
+  return (
+    <div className="admin-actions">
+      <button className="secondary-button" onClick={onEdit}>Editar</button>
+      <button className="text-button danger" onClick={onDelete}>Eliminar</button>
+    </div>
+  )
+}
+
+function AdminAppointmentList({ appointments, staff, students, onSelect }) {
+  if (!appointments.length) return <p className="restricted-note">Sin citas registradas.</p>
+  return (
+    <div className="admin-appointments">
+      {appointments.map(a => {
+        const professional = byId(staff, a.professionalId)
+        const [day, month] = formatDate(a.date).split(' ')
+        return (
+          <button key={a.id} onClick={() => onSelect(a.id)}>
+            <span className="history-date"><strong>{day}</strong><small>{month}</small></span>
+            <span><strong>{byId(SERVICES, professional.serviceId).name}</strong><small>{byId(students, a.studentId).name} · {professional.name} · {a.time} hrs.</small></span>
+            <span className={`pill ${a.status === 'done' ? 'attended' : 'confirmed'}`}>{a.status === 'done' ? 'Realizada' : 'Próxima'}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function AdminStaffModal({ professional, appointments, listProps, onSave, onDelete, onClose }) {
+  const [editing, setEditing] = useState(false)
+  const service = byId(SERVICES, professional.serviceId)
+  return (
+    <AdminModal title={professional.name} onClose={onClose}>
+      <div className="profile-hero"><span className="professional-avatar profile-avatar-large" style={{ '--avatar': professional.color }}>{professional.initials}</span><div><span className="eyebrow">{service.name.toUpperCase()}</span><h2>{professional.name}</h2><p>{professional.role}</p></div></div>
+      {editing ? (
+        <AdminForm
+          initial={{ name: professional.name, role: professional.role, serviceId: professional.serviceId, email: professional.email, phone: professional.phone }}
+          fields={[{ name: 'name', label: 'Nombre' }, { name: 'role', label: 'Cargo' }, { name: 'serviceId', label: 'Servicio', type: 'select', options: SERVICES.map(s => ({ value: s.id, label: s.name })) }, { name: 'email', label: 'Correo institucional', type: 'email' }, { name: 'phone', label: 'Teléfono', type: 'tel' }]}
+          onSave={values => { onSave({ ...values, initials: initialsOf(values.name) }); setEditing(false) }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <div className="profile-facts"><div><small>Correo</small><strong>{professional.email}</strong></div><div><small>Teléfono</small><strong>{professional.phone}</strong></div><div><small>Citas registradas</small><strong>{appointments.length}</strong></div></div>
+          <div className="profile-section"><h3>Sobre el profesional</h3><p>{professional.bio}</p></div>
+          <div className="profile-section"><h3>Áreas de atención</h3><div className="area-chips">{professional.areas.map(area => <span key={area}>{area}</span>)}</div></div>
+          <div className="profile-section"><h3>Citas</h3><AdminAppointmentList appointments={appointments} {...listProps} /></div>
+          <AdminActions onEdit={() => setEditing(true)} onDelete={onDelete} />
+        </>
+      )}
+    </AdminModal>
+  )
+}
+
+function AdminStudentModal({ student, appointments, listProps, onSave, onDelete, onClose }) {
+  const [editing, setEditing] = useState(false)
+  return (
+    <AdminModal title={student.name} onClose={onClose}>
+      <div className="profile-hero"><span className="professional-avatar profile-avatar-large" style={{ '--avatar': '#1d5fd1' }}>{initialsOf(student.name)}</span><div><span className="eyebrow">ESTUDIANTE</span><h2>{student.name}</h2><p>{student.career}</p></div></div>
+      {editing ? (
+        <AdminForm
+          initial={{ name: student.name, rut: student.rut, career: student.career, benefits: student.benefits, email: student.email, phone: student.phone }}
+          fields={[{ name: 'name', label: 'Nombre' }, { name: 'rut', label: 'RUT' }, { name: 'career', label: 'Carrera' }, { name: 'benefits', label: 'Beneficios' }, { name: 'email', label: 'Correo institucional', type: 'email' }, { name: 'phone', label: 'Teléfono', type: 'tel' }]}
+          onSave={values => { onSave(values); setEditing(false) }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <div className="profile-facts"><div><small>RUT</small><strong>{student.rut}</strong></div><div><small>Beneficios</small><strong>{student.benefits}</strong></div><div><small>Citas registradas</small><strong>{appointments.length}</strong></div></div>
+          <div className="profile-contact"><p><small>Correo institucional</small><strong>{student.email}</strong></p><p><small>Teléfono</small><strong>{student.phone}</strong></p></div>
+          <div className="profile-section"><h3>Citas</h3><AdminAppointmentList appointments={appointments} {...listProps} /></div>
+          <AdminActions onEdit={() => setEditing(true)} onDelete={onDelete} />
+        </>
+      )}
+    </AdminModal>
+  )
+}
+
+function AdminAppointmentModal({ appointment, staff, students, onSave, onDelete, onClose }) {
+  const [editing, setEditing] = useState(false)
+  const professional = byId(staff, appointment.professionalId)
+  const student = byId(students, appointment.studentId)
+  const service = byId(SERVICES, professional.serviceId)
+  return (
+    <AdminModal title={`Cita de ${student.name}`} onClose={onClose}>
+      <div className="profile-hero"><span className={`service-icon ${service.tone}`}><Icon name={service.icon} size={22} /></span><div><span className="eyebrow">DETALLE DE CITA</span><h2>{service.name}</h2><p>{formatDate(appointment.date)} · {appointment.time} hrs.</p></div></div>
+      {editing ? (
+        <AdminForm
+          initial={{ studentId: appointment.studentId, professionalId: String(appointment.professionalId), date: appointment.date, time: appointment.time, status: appointment.status, notes: appointment.notes }}
+          fields={[
+            { name: 'studentId', label: 'Alumno', type: 'select', options: students.map(s => ({ value: s.id, label: s.name })) },
+            { name: 'professionalId', label: 'Profesional', type: 'select', options: staff.map(p => ({ value: String(p.id), label: `${p.name} · ${byId(SERVICES, p.serviceId).name}` })) },
+            { name: 'date', label: 'Fecha', type: 'date' },
+            { name: 'time', label: 'Hora', type: 'time' },
+            { name: 'status', label: 'Estado', type: 'select', options: [{ value: 'upcoming', label: 'Próxima' }, { value: 'done', label: 'Realizada' }] },
+            { name: 'notes', label: 'Observaciones', type: 'textarea' },
+          ]}
+          onSave={values => { onSave({ ...values, professionalId: Number(values.professionalId) }); setEditing(false) }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <dl className="admin-detail">
+            <div><dt>Alumno</dt><dd>{student.name}</dd></div>
+            <div><dt>RUT</dt><dd>{student.rut}</dd></div>
+            <div><dt>Profesional</dt><dd>{professional.name}</dd></div>
+            <div><dt>Cargo</dt><dd>{professional.role}</dd></div>
+            <div><dt>Fecha</dt><dd>{formatDate(appointment.date)}</dd></div>
+            <div><dt>Hora</dt><dd>{appointment.time} hrs.</dd></div>
+            <div><dt>Lugar</dt><dd>{ATTENTION_PLACE}</dd></div>
+            <div><dt>Estado</dt><dd><span className={`pill ${appointment.status === 'done' ? 'attended' : 'confirmed'}`}>{appointment.status === 'done' ? 'Realizada' : 'Próxima'}</span></dd></div>
+            <div className="wide"><dt>Observaciones</dt><dd>{appointment.notes || 'Sin observaciones.'}</dd></div>
+          </dl>
+          <AdminActions onEdit={() => setEditing(true)} onDelete={onDelete} />
+        </>
+      )}
+    </AdminModal>
+  )
+}
+
+function AdminToast({ message, onClose }) {
+  useEffect(() => { if (!message) return; const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer) }, [message, onClose])
+  if (!message) return null
+  return <div className="toast" role="status"><span><Icon name="check" size={19} strokeWidth={2.5} /></span><div><strong>{message}</strong></div><button onClick={onClose} aria-label="Cerrar">×</button></div>
+}
+
+const ADMIN_TABS = [{ id: 'staff', label: 'Funcionarios' }, { id: 'students', label: 'Alumnos' }, { id: 'appointments', label: 'Citas' }]
+
+export function AdminApp() {
+  const [tab, setTab] = useState('staff')
+  const [staff, setStaff] = useState(INITIAL_STAFF)
+  const [students, setStudents] = useState(INITIAL_STUDENTS)
+  const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS)
+  const [selected, setSelected] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [toast, setToast] = useState('')
+  const closeToast = useCallback(() => setToast(''), [])
+
+  useEffect(() => { document.title = `${byId(ADMIN_TABS, tab).label} · Admin Bienestar USM` }, [tab])
+
+  const sorted = sortAppointments(appointments)
+  const upcoming = sorted.filter(a => a.status === 'upcoming')
+  const past = sorted.filter(a => a.status === 'done').reverse()
+  const appointmentsOf = (key, id) => sorted.filter(a => a[key] === id)
+  const listProps = { staff, students, onSelect: id => setSelected({ kind: 'appointment', id }) }
+
+  const update = (setList, id, values, message) => { setList(list => list.map(item => item.id === id ? { ...item, ...values } : item)); setToast(message) }
+
+  // Al eliminar un perfil también se eliminan sus citas, para no dejar citas huérfanas
+  const deleteTarget = () => {
+    const { kind, id } = pendingDelete
+    if (kind === 'staff') { setStaff(list => list.filter(p => p.id !== id)); setAppointments(list => list.filter(a => a.professionalId !== id)); setToast('Funcionario eliminado') }
+    if (kind === 'student') { setStudents(list => list.filter(s => s.id !== id)); setAppointments(list => list.filter(a => a.studentId !== id)); setToast('Alumno eliminado') }
+    if (kind === 'appointment') { setAppointments(list => list.filter(a => a.id !== id)); setToast('Cita eliminada') }
+    setPendingDelete(null)
+    setSelected(null)
+  }
+
+  const deleteCopy = () => {
+    const { kind, id } = pendingDelete
+    if (kind === 'appointment') { const a = byId(appointments, id); return { title: '¿Eliminar esta cita?', message: `Cita de ${byId(students, a.studentId).name} el ${formatDate(a.date)} a las ${a.time} hrs.` } }
+    const person = kind === 'staff' ? byId(staff, id) : byId(students, id)
+    const count = appointmentsOf(kind === 'staff' ? 'professionalId' : 'studentId', id).length
+    return { title: '¿Eliminar este perfil?', message: `Se eliminará el perfil de ${person.name}${count ? ` y sus ${count} citas` : ''}.` }
+  }
+
+  const selectedItem = selected && byId(selected.kind === 'staff' ? staff : selected.kind === 'student' ? students : appointments, selected.id)
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <button className="brand-button" aria-label="Ir al inicio de administrador" onClick={() => setTab('staff')}><Logo /></button>
+          <nav className="main-nav" aria-label="Navegación de administrador">
+            {ADMIN_TABS.map(t => <button key={t.id} className={tab === t.id ? 'active' : ''} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>{t.label}</button>)}
+          </nav>
+          <div className="header-actions"><div className="profile"><div className="profile-copy"><strong>Administrador</strong><small>Bienestar USM</small></div></div></div>
+        </div>
+      </header>
+
+      {tab === 'staff' && (
+        <main className="page-shell section-page">
+          <div className="page-heading"><span className="eyebrow">GESTIÓN DE USUARIOS</span><h1>Funcionarios</h1><p>{staff.length} profesionales agrupados por servicio.</p></div>
+          <div className="admin-columns">
+            {SERVICES.map(service => {
+              const members = staff.filter(p => p.serviceId === service.id)
+              return (
+                <section key={service.id} className="admin-column">
+                  <h2>{service.name}</h2>
+                  {members.length === 0 && <p className="restricted-note">Sin funcionarios.</p>}
+                  {members.map(prof => (
+                    <button key={prof.id} className="admin-person" onClick={() => setSelected({ kind: 'staff', id: prof.id })}>
+                      <span className="professional-avatar small" style={{ '--avatar': prof.color }}>{prof.initials}</span>
+                      <span><strong>{prof.name}</strong><small>{prof.role}</small></span>
+                    </button>
+                  ))}
+                </section>
+              )
+            })}
+          </div>
+        </main>
+      )}
+
+      {tab === 'students' && (
+        <main className="page-shell section-page">
+          <div className="page-heading"><span className="eyebrow">GESTIÓN DE USUARIOS</span><h1>Alumnos</h1><p>{students.length} estudiantes registrados.</p></div>
+          <table className="admin-table">
+            <thead><tr><th>Nombre</th><th>RUT</th><th>Carrera</th><th>Correo</th><th>Citas</th></tr></thead>
+            <tbody>
+              {students.map(student => (
+                <tr key={student.id} onClick={() => setSelected({ kind: 'student', id: student.id })}>
+                  <td><button className="admin-link" onClick={e => { e.stopPropagation(); setSelected({ kind: 'student', id: student.id }) }}>{student.name}</button></td>
+                  <td>{student.rut}</td><td>{student.career}</td><td>{student.email}</td>
+                  <td>{appointmentsOf('studentId', student.id).length}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </main>
+      )}
+
+      {tab === 'appointments' && (
+        <main className="page-shell section-page narrow-page">
+          <div className="page-heading"><span className="eyebrow">CONTROL DE CITAS</span><h1>Citas</h1><p>Todas las citas realizadas y por realizar.</p></div>
+          <h2 className="admin-subtitle">Próximas ({upcoming.length})</h2>
+          <AdminAppointmentList appointments={upcoming} {...listProps} />
+          <h2 className="admin-subtitle">Realizadas ({past.length})</h2>
+          <AdminAppointmentList appointments={past} {...listProps} />
+        </main>
+      )}
+
+      {selectedItem && selected.kind === 'staff' && <AdminStaffModal key={`staff-${selectedItem.id}`} professional={selectedItem} appointments={appointmentsOf('professionalId', selectedItem.id)} listProps={listProps} onSave={values => update(setStaff, selectedItem.id, values, 'Perfil actualizado')} onDelete={() => setPendingDelete(selected)} onClose={() => setSelected(null)} />}
+      {selectedItem && selected.kind === 'student' && <AdminStudentModal key={`student-${selectedItem.id}`} student={selectedItem} appointments={appointmentsOf('studentId', selectedItem.id)} listProps={listProps} onSave={values => update(setStudents, selectedItem.id, values, 'Perfil actualizado')} onDelete={() => setPendingDelete(selected)} onClose={() => setSelected(null)} />}
+      {selectedItem && selected.kind === 'appointment' && <AdminAppointmentModal key={`appointment-${selectedItem.id}`} appointment={selectedItem} staff={staff} students={students} onSave={values => update(setAppointments, selectedItem.id, values, 'Cita actualizada')} onDelete={() => setPendingDelete(selected)} onClose={() => setSelected(null)} />}
+      {pendingDelete && <AdminDeleteConfirm {...deleteCopy()} onCancel={() => setPendingDelete(null)} onConfirm={deleteTarget} />}
+      <AdminToast message={toast} onClose={closeToast} />
     </div>
   )
 }
