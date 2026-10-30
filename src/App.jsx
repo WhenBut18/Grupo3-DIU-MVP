@@ -1,7 +1,35 @@
 import { useMemo, useState } from 'react'
 
 const USER = { name: 'Alumno', initials: 'AL' }
-const STAFF_USER = { name: 'Dra. Fernanda Zamora', initials: 'FZ', role: 'Cirujana dentista' }
+
+// 1. CREAMOS PERFILES DE FUNCIONARIOS CON DISTINTOS ROLES
+const STAFF_PROFILES = [
+  { id: 'dental', name: 'Dra. Fernanda Zamora', initials: 'FZ', role: 'Cirujana dentista' },
+  { id: 'bienestar', name: 'Eliana Ponce', initials: 'EP', role: 'Asistente social' },
+  { id: 'psicologia', name: 'Dr. Roberto Soto', initials: 'RS', role: 'Psicólogo clínico' },
+]
+
+// 2. DEFINIMOS LOS PERMISOS POR ESPECIALIDAD
+const ROLE_PERMISSIONS = {
+  dental: {
+    canSeeBenefits: false,
+    canSeeMeds: true,
+    allowedHistory: ['Servicio médico', 'Servicio dental'],
+    allowedFiles: ['Radiografía_Panoramica_2026.pdf']
+  },
+  bienestar: {
+    canSeeBenefits: true,
+    canSeeMeds: false,
+    allowedHistory: ['Bienestar estudiantil', 'Psicología'],
+    allowedFiles: ['Ficha_DAS_Ingreso.pdf']
+  },
+  psicologia: {
+    canSeeBenefits: true,
+    canSeeMeds: true,
+    allowedHistory: ['Psicología', 'Servicio médico', 'Bienestar estudiantil', 'Servicio dental'],
+    allowedFiles: ['Ficha_DAS_Ingreso.pdf', 'Radiografía_Panoramica_2026.pdf']
+  }
+}
 
 const SERVICES = [
   { id: 'bienestar', name: 'Bienestar estudiantil', description: 'Orientación social y apoyo para beneficios', icon: 'heart', tone: 'blue', next: 'Hoy' },
@@ -42,9 +70,9 @@ const TIMES = ['09:00', '09:45', '10:30', '11:15', '12:00', '14:30', '15:15', '1
 
 // Mock Data para Funcionario
 const PATIENTS_TODAY = [
-  { id: 'p1', time: '09:00', name: 'Axel González', rut: '20.123.456-7', status: 'pending', career: 'Ingeniería Civil en Informática', benefits: 'Gratuidad', health: 'Fonasa B', conditions: 'Hipertensión leve', meds: 'Losartán 50mg' },
+  { id: 'p1', time: '09:00', name: 'Axel González', rut: '20.123.456-7', status: 'pending', career: 'Ingeniería Civil en Informática', benefits: 'Gratuidad, Beca de Alimentación', health: 'Fonasa B', conditions: 'Hipertensión leve', meds: 'Losartán 50mg' },
   { id: 'p2', time: '09:45', name: 'Samira Estay', rut: '21.345.678-9', status: 'attended', career: 'Arquitectura', benefits: 'Beca Bicentenario', health: 'Isapre', conditions: 'Ninguna', meds: 'Ninguno' },
-  { id: 'p3', time: '11:15', name: 'Vicente Pacheco', rut: '20.987.654-3', status: 'pending', career: 'Ingeniería Civil Electrónica', benefits: 'CAE', health: 'Fonasa C', conditions: 'Asma', meds: 'Salbutamol PRN' }
+  { id: 'p3', time: '11:15', name: 'Vicente Pacheco', rut: '20.987.654-3', status: 'pending', career: 'Ingeniería Civil Electrónica', benefits: 'CAE, Fondo Solidario', health: 'Fonasa C', conditions: 'Asma', meds: 'Salbutamol PRN' }
 ]
 
 const PATIENT_HISTORY = [
@@ -85,15 +113,48 @@ function Logo() {
   return <div className="brand" aria-label="Bienestar USM"><div className="brand-mark"><span>U</span></div><div><strong>Bienestar USM</strong><small>Portal de atención</small></div></div>
 }
 
-function AppHeader({ activeSection, bookingCount, onNavigate, role, onToggleRole }) {
+function AppHeader({ activeSection, bookingCount, onNavigate, role, onToggleRole, staffUser, setStaffUser }) {
   const isStaff = role === 'staff'
   const links = isStaff 
     ? [{ id: 'dashboard', label: 'Agenda Diaria' }, { id: 'patients', label: 'Pacientes' }]
     : [{ id: 'home', label: 'Inicio' }, { id: 'reserve', label: 'Reservar' }, { id: 'appointments', label: 'Mis horas' }, { id: 'history', label: 'Historial' }]
   
-  const profileData = isStaff ? STAFF_USER : USER
+  const profileData = isStaff ? staffUser : USER
 
-  return <header className="topbar"><div className="topbar-inner"><button className="brand-button" onClick={() => onNavigate(isStaff ? 'dashboard' : 'home')}><Logo /></button><nav className="main-nav" aria-label="Navegación principal">{links.map(link => <button key={link.id} className={activeSection === link.id ? 'active' : ''} aria-current={activeSection === link.id ? 'page' : undefined} onClick={() => onNavigate(link.id)}>{link.label}{link.id === 'appointments' && bookingCount > 0 && <span className="nav-badge">{bookingCount}</span>}</button>)}</nav><div className="header-actions"><button onClick={onToggleRole} className="text-button" style={{color: 'var(--blue)', fontWeight: 700}}>Modo: {isStaff ? 'Funcionario' : 'Alumno'}</button><button className="icon-button" aria-label="Notificaciones"><Icon name="bell" /></button><div className="profile"><span className="profile-avatar" style={isStaff ? {background: '#7c3aed', color: '#fff'} : {}}>{profileData.initials}</span><span className="profile-copy"><strong>{profileData.name}</strong><small>{isStaff ? profileData.role : 'Estudiante'}</small></span></div></div></div></header>
+  return (
+    <header className="topbar">
+      <div className="topbar-inner">
+        <button className="brand-button" onClick={() => onNavigate(isStaff ? 'dashboard' : 'home')}><Logo /></button>
+        <nav className="main-nav" aria-label="Navegación principal">
+          {links.map(link => <button key={link.id} className={activeSection === link.id ? 'active' : ''} aria-current={activeSection === link.id ? 'page' : undefined} onClick={() => onNavigate(link.id)}>{link.label}{link.id === 'appointments' && bookingCount > 0 && <span className="nav-badge">{bookingCount}</span>}</button>)}
+        </nav>
+        <div className="header-actions">
+          <button onClick={onToggleRole} className="text-button" style={{color: 'var(--blue)', fontWeight: 700}}>
+            Modo: {isStaff ? 'Funcionario' : 'Alumno'}
+          </button>
+          <button className="icon-button" aria-label="Notificaciones"><Icon name="bell" /></button>
+          <div className="profile">
+            <span className="profile-avatar" style={isStaff ? {background: '#7c3aed', color: '#fff'} : {}}>{profileData.initials}</span>
+            <div className="profile-copy">
+              {/* SELECTOR MÁGICO PARA CAMBIAR FUNCIONARIO */}
+              {isStaff ? (
+                <select 
+                  value={staffUser.id} 
+                  onChange={(e) => setStaffUser(STAFF_PROFILES.find(p => p.id === e.target.value))}
+                  style={{border: 'none', background: 'transparent', fontWeight: 800, fontSize: '14px', color: 'inherit', outline: 'none', cursor: 'pointer', padding: 0, margin: 0}}
+                >
+                  {STAFF_PROFILES.map(prof => <option key={prof.id} value={prof.id}>{prof.name}</option>)}
+                </select>
+              ) : (
+                <strong>{profileData.name}</strong>
+              )}
+              <small>{isStaff ? profileData.role : 'Estudiante'}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  )
 }
 
 // === COMPONENTES DE ESTUDIANTE ===
@@ -112,11 +173,8 @@ function BookingCard({ booking, onCancel }) {
 
 function Dashboard({ section, bookings, onStart, onCancel, onNavigate }) {
   if (section === 'reserve') return <main className="page-shell section-page"><div className="page-heading"><span className="eyebrow">NUEVA RESERVA</span><h1>Elige un servicio</h1><p>Consulta la próxima disponibilidad y comienza tu reserva.</p></div><div className="services-grid services-page">{SERVICES.map(item => <ServiceCard key={item.id} service={item} onSelect={onStart} />)}</div><div className="prototype-note"><Icon name="shield" size={18} /><p>Todos los horarios y profesionales son datos simulados para este prototipo.</p></div></main>
-
   if (section === 'appointments') return <main className="page-shell section-page narrow-page"><div className="page-heading"><span className="eyebrow">AGENDA PERSONAL</span><h1>Mis horas</h1><p>Revisa y administra tus próximas atenciones.</p></div><div className="appointments-list">{bookings.length ? bookings.map(item => <BookingCard key={item.id} booking={item} onCancel={onCancel} />) : <div className="empty-state"><span><Icon name="calendar" size={26} /></span><h3>No tienes horas agendadas</h3><p>Cuando reserves una atención aparecerá en esta sección.</p><button className="inline-primary" onClick={() => onNavigate('reserve')}>Reservar una hora</button></div>}</div></main>
-
   if (section === 'history') return <main className="page-shell section-page narrow-page"><div className="page-heading"><span className="eyebrow">ATENCIONES ANTERIORES</span><h1>Historial</h1><p>Registro simulado de tus atenciones realizadas.</p></div><div className="history-list"><article><span className="history-date"><strong>15</strong><small>AGO</small></span><div><span className="pill attended"><Icon name="check" size={13} /> Realizada</span><h2>Psicología</h2><p>Dr. Roberto Soto · 15:30 hrs.</p></div><button aria-label="Ver detalle"><Icon name="chevron" /></button></article><article><span className="history-date"><strong>02</strong><small>JUL</small></span><div><span className="pill attended"><Icon name="check" size={13} /> Realizada</span><h2>Servicio médico</h2><p>Dra. Javiera León · 11:00 hrs.</p></div><button aria-label="Ver detalle"><Icon name="chevron" /></button></article></div><p className="history-disclaimer"><Icon name="shield" size={16} /> Información de demostración. Este prototipo no almacena datos médicos.</p></main>
-
   const nextBooking = bookings[0]
   return <main className="page-shell dashboard"><section className="welcome"><div><span className="eyebrow">DOMINGO, 6 DE SEPTIEMBRE</span><h1>Hola, {USER.name} <span>👋</span></h1><p>Tu bienestar universitario, en un solo lugar.</p></div><div className="availability-chip"><span className="pulse" /><div><strong>Atención disponible</strong><small>Hay horas para esta semana</small></div></div></section><div className="home-grid"><section className="home-action"><span className="home-action-icon"><Icon name="calendar" size={26} /></span><div><span className="eyebrow">ACCESO RÁPIDO</span><h2>Agenda tu próxima atención</h2><p>Encuentra un servicio, profesional y horario en pocos pasos.</p><button className="inline-primary" onClick={() => onNavigate('reserve')}>Reservar nueva hora <Icon name="arrow" size={17} /></button></div></section><section className="home-next"><div className="section-heading"><h2>Tu próxima hora</h2><button className="text-link" onClick={() => onNavigate('appointments')}>Ver todas</button></div>{nextBooking ? <BookingCard booking={nextBooking} onCancel={onCancel} /> : <div className="empty-state compact-empty"><h3>Sin reservas próximas</h3><p>Puedes agendar desde la pestaña Reservar.</p></div>}</section></div><section className="home-shortcuts"><button onClick={() => onNavigate('appointments')}><span><Icon name="clock" /></span><div><strong>Mis horas</strong><small>Administra tus reservas</small></div><Icon name="chevron" /></button><button onClick={() => onNavigate('history')}><span><Icon name="check" /></span><div><strong>Historial</strong><small>Revisa atenciones anteriores</small></div><Icon name="chevron" /></button></section></main>
 }
@@ -142,8 +200,7 @@ function SuccessToast({ booking, onClose }) {
   return <div className="toast" role="status"><span><Icon name="check" size={19} strokeWidth={2.5} /></span><div><strong>Hora reservada</strong><p>{booking.dateShort} · {booking.time} hrs.</p></div><button onClick={onClose} aria-label="Cerrar">×</button></div>
 }
 
-
-// === NUEVOS COMPONENTES DE FUNCIONARIO ===
+// === COMPONENTES DE FUNCIONARIO ===
 
 function StaffDashboard({ onSelectPatient }) {
   return (
@@ -204,9 +261,14 @@ function ReferralModal({ onClose, onConfirm }) {
   )
 }
 
-function StaffPatientView({ patient, onBack }) {
+function StaffPatientView({ patient, onBack, staffUser }) {
   const [tab, setTab] = useState('resumen')
   const [showReferral, setShowReferral] = useState(false)
+  
+  // Obtenemos los permisos del funcionario actual
+  const perms = ROLE_PERMISSIONS[staffUser.id]
+  const allowedHistory = PATIENT_HISTORY.filter(record => perms.allowedHistory.includes(record.service))
+  const allowedFiles = PATIENT_FILES.filter(file => perms.allowedFiles.includes(file.name))
 
   return (
     <div style={{background: '#f5f7fb', minHeight: '100vh', display: 'flex', flexDirection: 'column'}}>
@@ -227,7 +289,7 @@ function StaffPatientView({ patient, onBack }) {
         <div className="patient-tabs">
           <button className={tab === 'resumen' ? 'active' : ''} onClick={() => setTab('resumen')}>Resumen General</button>
           <button className={tab === 'historial' ? 'active' : ''} onClick={() => setTab('historial')}>Historial Multidisciplinario</button>
-          <button className={tab === 'archivos' ? 'active' : ''} onClick={() => setTab('archivos')}>Archivos Médicos</button>
+          <button className={tab === 'archivos' ? 'active' : ''} onClick={() => setTab('archivos')}>Archivos Compartidos</button>
         </div>
 
         <div className="tab-content">
@@ -235,10 +297,32 @@ function StaffPatientView({ patient, onBack }) {
             <div>
               <h3>Antecedentes del Estudiante</h3>
               <div className="data-grid">
-                <div className="data-item"><small>Beneficios</small><strong>{patient.benefits}</strong></div>
-                <div className="data-item"><small>Previsión de Salud</small><strong>{patient.health}</strong></div>
-                <div className="data-item"><small>Condiciones Crónicas</small><strong>{patient.conditions}</strong></div>
-                <div className="data-item"><small>Medicamentos Actuales</small><strong>{patient.meds}</strong></div>
+                
+                {/* Lógica de Privacidad: Beneficios */}
+                {perms.canSeeBenefits ? (
+                  <>
+                    <div className="data-item"><small>Beneficios Financieros</small><strong>{patient.benefits}</strong></div>
+                    <div className="data-item"><small>Previsión de Salud</small><strong>{patient.health}</strong></div>
+                  </>
+                ) : (
+                  <div className="data-item" style={{ gridColumn: 'span 2', background: '#f8fafc', color: '#8795a7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Icon name="shield" size={18} />
+                    <span><strong>Acceso Denegado:</strong> Su rol no tiene permisos para ver datos socioeconómicos.</span>
+                  </div>
+                )}
+
+                {/* Lógica de Privacidad: Clínica */}
+                {perms.canSeeMeds ? (
+                  <>
+                    <div className="data-item"><small>Condiciones Crónicas</small><strong>{patient.conditions}</strong></div>
+                    <div className="data-item"><small>Medicamentos Actuales</small><strong>{patient.meds}</strong></div>
+                  </>
+                ) : (
+                  <div className="data-item" style={{ gridColumn: 'span 2', background: '#f8fafc', color: '#8795a7', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Icon name="shield" size={18} />
+                    <span><strong>Datos Clínicos Protegidos:</strong> Su rol no autoriza visualizar diagnósticos médicos o medicamentos.</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -247,40 +331,58 @@ function StaffPatientView({ patient, onBack }) {
             <div>
               <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
                 <h3>Atenciones en otros servicios</h3>
-                <span className="prototype-note" style={{marginTop: 0, padding: '6px 12px'}}><Icon name="shield" size={14}/> Acceso restringido autorizado</span>
+                <span className="prototype-note" style={{marginTop: 0, padding: '6px 12px'}}><Icon name="shield" size={14}/> Filtrado por permisos de {staffUser.role}</span>
               </div>
-              <div className="history-list">
-                {PATIENT_HISTORY.map(record => (
-                  <article key={record.id} style={{alignItems: 'start'}}>
-                    <span className="history-date" style={{background: '#f0eafd', color: '#7048c8'}}>
-                      <strong>{record.date.split(' ')[0]}</strong><small>{record.date.split(' ')[1]}</small>
-                    </span>
-                    <div>
-                      <h2>{record.service}</h2>
-                      <p style={{marginBottom: '6px'}}>{record.professional}</p>
-                      <div className="booking-note" style={{background: '#fff', border: '1px solid #edf0f5'}}>{record.notes}</div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              
+              {allowedHistory.length > 0 ? (
+                <div className="history-list">
+                  {allowedHistory.map(record => (
+                    <article key={record.id} style={{alignItems: 'start'}}>
+                      <span className="history-date" style={{background: '#f0eafd', color: '#7048c8'}}>
+                        <strong>{record.date.split(' ')[0]}</strong><small>{record.date.split(' ')[1]}</small>
+                      </span>
+                      <div>
+                        <h2>{record.service}</h2>
+                        <p style={{marginBottom: '6px'}}>{record.professional}</p>
+                        <div className="booking-note" style={{background: '#fff', border: '1px solid #edf0f5'}}>{record.notes}</div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <span><Icon name="shield" size={26} /></span>
+                  <h3>Historial Oculto</h3>
+                  <p>No existen registros que su rol esté autorizado a visualizar.</p>
+                </div>
+              )}
             </div>
           )}
 
           {tab === 'archivos' && (
             <div>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <h3>Documentos Clínicos Compartidos</h3>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                <h3>Documentos Clínicos Autorizados</h3>
                 <button className="text-button" style={{color: 'var(--blue)'}}>+ Subir archivo</button>
               </div>
-              <div className="files-grid">
-                {PATIENT_FILES.map(file => (
-                  <div key={file.id} className="file-card">
-                    <div className="file-icon"><Icon name="file" size={24} /></div>
-                    <strong style={{display: 'block', fontSize: '12.5px', marginBottom: '4px', wordBreak: 'break-all'}}>{file.name}</strong>
-                    <small style={{color: 'var(--muted)', fontSize: '11px'}}>{file.date} · {file.size}</small>
-                  </div>
-                ))}
-              </div>
+              
+              {allowedFiles.length > 0 ? (
+                <div className="files-grid">
+                  {allowedFiles.map(file => (
+                    <div key={file.id} className="file-card">
+                      <div className="file-icon"><Icon name="file" size={24} /></div>
+                      <strong style={{display: 'block', fontSize: '12.5px', marginBottom: '4px', wordBreak: 'break-all'}}>{file.name}</strong>
+                      <small style={{color: 'var(--muted)', fontSize: '11px'}}>{file.date} · {file.size}</small>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <span><Icon name="shield" size={26} /></span>
+                  <h3>Archivos Protegidos</h3>
+                  <p>Los documentos de este paciente no están compartidos con su especialidad.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -291,12 +393,12 @@ function StaffPatientView({ patient, onBack }) {
   )
 }
 
-function StaffFlow() {
+function StaffFlow({ staffUser }) {
   const [view, setView] = useState('dashboard')
   const [patient, setPatient] = useState(null)
 
   if (view === 'patient' && patient) {
-    return <StaffPatientView patient={patient} onBack={() => { setView('dashboard'); setPatient(null); window.scrollTo(0,0) }} />
+    return <StaffPatientView patient={patient} onBack={() => { setView('dashboard'); setPatient(null); window.scrollTo(0,0) }} staffUser={staffUser} />
   }
   return (
     <div className="app">
@@ -307,6 +409,7 @@ function StaffFlow() {
 
 export default function App() {
   const [role, setRole] = useState('student')
+  const [staffUser, setStaffUser] = useState(STAFF_PROFILES[0])
   const [view, setView] = useState('dashboard')
   const [section, setSection] = useState('home')
   const [service, setService] = useState(null)
@@ -325,10 +428,10 @@ export default function App() {
   
   return (
     <div className="app">
-      <AppHeader activeSection={role === 'staff' ? (view === 'dashboard' ? 'dashboard' : 'patients') : (view === 'dashboard' ? section : 'reserve')} bookingCount={bookings.length} onNavigate={navigate} role={role} onToggleRole={() => { setRole(role === 'student' ? 'staff' : 'student'); setView('dashboard'); setSection('home') }} />
+      <AppHeader activeSection={role === 'staff' ? (view === 'dashboard' ? 'dashboard' : 'patients') : (view === 'dashboard' ? section : 'reserve')} bookingCount={bookings.length} onNavigate={navigate} role={role} onToggleRole={() => { setRole(role === 'student' ? 'staff' : 'student'); setView('dashboard'); setSection('home') }} staffUser={staffUser} setStaffUser={setStaffUser} />
       
       {role === 'staff' ? (
-        <StaffFlow />
+        <StaffFlow staffUser={staffUser} />
       ) : (
         <>
           {view === 'dashboard' && <Dashboard section={section} bookings={bookings} onStart={startBooking} onCancel={id => setBookings(current => current.filter(item => item.id !== id))} onNavigate={navigate} />}
@@ -337,7 +440,7 @@ export default function App() {
         </>
       )}
       
-      <footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer>
+      {role === 'student' && <footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer>}
       <SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} />
     </div>
   )
