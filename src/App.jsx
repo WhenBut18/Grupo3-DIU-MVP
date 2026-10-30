@@ -511,7 +511,7 @@ export default function App() {
         </>
       )}
       
-      {role === 'student' && <footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer>}
+      {role === 'student' && <footer><span>Prototipo de reservas · Proyecto 3</span></footer>}
       <CancelBookingModal booking={cancelTarget} onKeep={() => setCancelTarget(null)} onConfirm={() => { setBookings(current => current.filter(item => item.id !== cancelTarget.id)); setCancelTarget(null) }} />
       <SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} />
     </div>
