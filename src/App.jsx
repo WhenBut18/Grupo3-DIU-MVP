@@ -1,0 +1,145 @@
+import { useMemo, useState } from 'react'
+
+const USER = { name: 'Alumno', initials: 'AL' }
+
+const SERVICES = [
+  { id: 'bienestar', name: 'Bienestar estudiantil', description: 'Orientación social y apoyo para beneficios', icon: 'heart', tone: 'blue', next: 'Hoy' },
+  { id: 'dental', name: 'Servicio dental', description: 'Evaluación, prevención y atención odontológica', icon: 'sparkles', tone: 'cyan', next: 'Mañana' },
+  { id: 'psicologia', name: 'Psicología', description: 'Acompañamiento emocional y salud mental', icon: 'brain', tone: 'violet', next: 'Mar, 8 sep' },
+  { id: 'kinesiologia', name: 'Kinesiología', description: 'Evaluación y recuperación física', icon: 'activity', tone: 'orange', next: 'Mié, 9 sep' },
+  { id: 'medicina', name: 'Servicio médico', description: 'Atención primaria y orientación de salud', icon: 'medical', tone: 'green', next: 'Hoy' },
+]
+
+const PROFESSIONALS = {
+  bienestar: [
+    { id: 1, name: 'Eliana Ponce', role: 'Asistente social', initials: 'EP', color: '#2563eb', next: 'Hoy, 16:00' },
+    { id: 2, name: 'Camila Fuentes', role: 'Trabajadora social', initials: 'CF', color: '#0891b2', next: 'Mañana, 09:30' },
+  ],
+  dental: [
+    { id: 3, name: 'Dra. Fernanda Zamora', role: 'Cirujana dentista', initials: 'FZ', color: '#7c3aed', next: 'Mañana, 10:30' },
+    { id: 4, name: 'Dr. Matías Araya', role: 'Cirujano dentista', initials: 'MA', color: '#ea580c', next: 'Jue, 10 sep' },
+  ],
+  psicologia: [
+    { id: 5, name: 'Dr. Roberto Soto', role: 'Psicólogo clínico', initials: 'RS', color: '#7c3aed', next: 'Mar, 8 sep' },
+    { id: 6, name: 'Paula Ríos', role: 'Psicóloga', initials: 'PR', color: '#2563eb', next: 'Mié, 9 sep' },
+  ],
+  kinesiologia: [
+    { id: 7, name: 'Tomás Silva', role: 'Kinesiólogo', initials: 'TS', color: '#ea580c', next: 'Mié, 9 sep' },
+  ],
+  medicina: [
+    { id: 8, name: 'Dra. Javiera León', role: 'Médica general', initials: 'JL', color: '#059669', next: 'Hoy, 15:30' },
+    { id: 9, name: 'Dr. Nicolás Vera', role: 'Médico general', initials: 'NV', color: '#0891b2', next: 'Mañana, 11:00' },
+  ],
+}
+
+const PROFILE_DETAILS = {
+  1: { bio: 'Orienta a estudiantes en beneficios, apoyos socioeconómicos y redes de acompañamiento universitario.', areas: ['Beneficios estudiantiles', 'Orientación social', 'Redes de apoyo'], email: 'eliana.ponce@usm.cl' },
+  2: { bio: 'Acompaña procesos de adaptación universitaria y orienta en el acceso a apoyos internos y externos.', areas: ['Adaptación universitaria', 'Apoyo social', 'Derivaciones'], email: 'camila.fuentes@usm.cl' },
+  3: { bio: 'Realiza evaluación odontológica general, acciones preventivas y orientación para tratamientos dentales.', areas: ['Evaluación dental', 'Prevención', 'Salud bucal'], email: 'fernanda.zamora@usm.cl' },
+  4: { bio: 'Atiende consultas odontológicas generales con foco en diagnóstico temprano y cuidado preventivo.', areas: ['Diagnóstico', 'Higiene dental', 'Prevención'], email: 'matias.araya@usm.cl' },
+  5: { bio: 'Brinda acompañamiento psicológico breve ante dificultades emocionales, académicas y de adaptación.', areas: ['Ansiedad', 'Estrés académico', 'Adaptación'], email: 'roberto.soto@usm.cl' },
+  6: { bio: 'Acompaña a estudiantes en bienestar emocional, autocuidado y desarrollo de estrategias personales.', areas: ['Bienestar emocional', 'Autocuidado', 'Hábitos'], email: 'paula.rios@usm.cl' },
+  7: { bio: 'Evalúa molestias musculoesqueléticas y entrega orientación inicial para la recuperación física.', areas: ['Evaluación funcional', 'Prevención de lesiones', 'Movilidad'], email: 'tomas.silva@usm.cl' },
+  8: { bio: 'Entrega atención médica general, evaluación inicial y orientación sobre los pasos de cuidado necesarios.', areas: ['Medicina general', 'Evaluación inicial', 'Orientación'], email: 'javiera.leon@usm.cl' },
+  9: { bio: 'Atiende consultas generales y orienta oportunamente a otros servicios de salud cuando corresponde.', areas: ['Atención primaria', 'Prevención', 'Derivación'], email: 'nicolas.vera@usm.cl' },
+}
+
+const DAYS = [
+  { iso: '2026-09-08', weekday: 'Mar', day: '08', month: 'SEP', label: 'martes 8 de septiembre' },
+  { iso: '2026-09-09', weekday: 'Mié', day: '09', month: 'SEP', label: 'miércoles 9 de septiembre' },
+  { iso: '2026-09-10', weekday: 'Jue', day: '10', month: 'SEP', label: 'jueves 10 de septiembre' },
+  { iso: '2026-09-11', weekday: 'Vie', day: '11', month: 'SEP', label: 'viernes 11 de septiembre' },
+]
+
+const TIMES = ['09:00', '09:45', '10:30', '11:15', '12:00', '14:30', '15:15', '16:00']
+
+function Icon({ name, size = 20, strokeWidth = 1.9 }) {
+  const paths = {
+    heart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />,
+    sparkles: <><path d="m12 3-1.35 3.65L7 8l3.65 1.35L12 13l1.35-3.65L17 8l-3.65-1.35L12 3Z"/><path d="m5 14-.8 2.2L2 17l2.2.8L5 20l.8-2.2L8 17l-2.2-.8L5 14Z"/><path d="m19 13-.65 1.35L17 15l1.35.65L19 17l.65-1.35L21 15l-1.35-.65L19 13Z"/></>,
+    brain: <><path d="M9.5 4.5A3 3 0 0 0 6.7 8 3.4 3.4 0 0 0 5 14.35 3.5 3.5 0 0 0 9.5 19"/><path d="M14.5 4.5A3 3 0 0 1 17.3 8a3.4 3.4 0 0 1 1.7 6.35 3.5 3.5 0 0 1-4.5 4.65"/><path d="M12 3v18M9 9.5a3 3 0 0 0 3 3M15 9.5a3 3 0 0 1-3 3"/></>,
+    activity: <path d="M3 12h4l2.2-7 4.2 14 2.2-7H21" />,
+    medical: <><path d="M9 3h6v18H9z"/><path d="M3 9h18v6H3z"/></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
+    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    location: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
+    arrow: <><path d="M5 12h14M13 6l6 6-6 6"/></>,
+    back: <path d="m15 18-6-6 6-6"/>,
+    check: <path d="m5 12 4 4L19 6"/>,
+    bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 19h4"/></>,
+    chevron: <path d="m9 18 6-6-6-6"/>,
+    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
+  }
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
+}
+
+function Logo() {
+  return <div className="brand" aria-label="Bienestar USM"><div className="brand-mark"><span>U</span></div><div><strong>Bienestar USM</strong><small>Portal de atención estudiantil</small></div></div>
+}
+
+function AppHeader({ activeSection, bookingCount, onNavigate }) {
+  const links = [
+    { id: 'home', label: 'Inicio' },
+    { id: 'reserve', label: 'Reservar' },
+    { id: 'appointments', label: 'Mis horas' },
+    { id: 'history', label: 'Historial' },
+  ]
+  return <header className="topbar"><div className="topbar-inner"><button className="brand-button" onClick={() => onNavigate('home')}><Logo /></button><nav className="main-nav" aria-label="Navegación principal">{links.map(link => <button key={link.id} className={activeSection === link.id ? 'active' : ''} aria-current={activeSection === link.id ? 'page' : undefined} onClick={() => onNavigate(link.id)}>{link.label}{link.id === 'appointments' && bookingCount > 0 && <span className="nav-badge">{bookingCount}</span>}</button>)}</nav><div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Icon name="bell" /></button><div className="profile"><span className="profile-avatar">{USER.initials}</span><span className="profile-copy"><strong>{USER.name}</strong><small>Estudiante</small></span></div></div></div></header>
+}
+
+function Progress({ step }) {
+  const labels = ['Servicio', 'Profesional', 'Fecha y hora']
+  return <div className="progress" aria-label={`Paso ${step} de 3`}>{labels.map((label, index) => { const number = index + 1; const done = number < step; const active = number === step; return <div className={`progress-item ${done ? 'done' : ''} ${active ? 'active' : ''}`} key={label}><span>{done ? <Icon name="check" size={15} strokeWidth={2.5} /> : number}</span><p>{label}</p></div> })}</div>
+}
+
+function ServiceCard({ service, onSelect }) {
+  return <button className="service-card" onClick={() => onSelect(service)}><span className={`service-icon ${service.tone}`}><Icon name={service.icon} size={22} /></span><span className="service-content"><strong>{service.name}</strong><small>{service.description}</small><em><span className="status-dot" /> Próxima hora: {service.next}</em></span><span className="service-arrow"><Icon name="chevron" size={19} /></span></button>
+}
+
+function BookingCard({ booking, onCancel }) {
+  return <article className="booking-card"><div className="booking-accent" /><div className="booking-topline"><span className="pill confirmed"><span /> Confirmada</span><button className="text-button danger" onClick={() => onCancel(booking.id)}>Anular hora</button></div><h3>{booking.service}</h3><p className="booking-professional">{booking.professional}</p><div className="booking-details"><span><Icon name="calendar" size={18} />{booking.dateLabel}</span><span><Icon name="clock" size={18} />{booking.time} hrs.</span><span><Icon name="location" size={18} />Edificio F · Campus Casa Central</span></div><div className="booking-note"><Icon name="shield" size={17} /> Llega 10 minutos antes y lleva tu credencial universitaria.</div></article>
+}
+
+function Dashboard({ section, bookings, onStart, onCancel, onNavigate }) {
+  if (section === 'reserve') return <main className="page-shell section-page"><div className="page-heading"><span className="eyebrow">NUEVA RESERVA</span><h1>Elige un servicio</h1><p>Consulta la próxima disponibilidad y comienza tu reserva.</p></div><div className="services-grid services-page">{SERVICES.map(item => <ServiceCard key={item.id} service={item} onSelect={onStart} />)}</div><div className="prototype-note"><Icon name="shield" size={18} /><p>Todos los horarios y profesionales son datos simulados para este prototipo.</p></div></main>
+
+  if (section === 'appointments') return <main className="page-shell section-page narrow-page"><div className="page-heading"><span className="eyebrow">AGENDA PERSONAL</span><h1>Mis horas</h1><p>Revisa y administra tus próximas atenciones.</p></div><div className="appointments-list">{bookings.length ? bookings.map(item => <BookingCard key={item.id} booking={item} onCancel={onCancel} />) : <div className="empty-state"><span><Icon name="calendar" size={26} /></span><h3>No tienes horas agendadas</h3><p>Cuando reserves una atención aparecerá en esta sección.</p><button className="inline-primary" onClick={() => onNavigate('reserve')}>Reservar una hora</button></div>}</div></main>
+
+  if (section === 'history') return <main className="page-shell section-page narrow-page"><div className="page-heading"><span className="eyebrow">ATENCIONES ANTERIORES</span><h1>Historial</h1><p>Registro simulado de tus atenciones realizadas.</p></div><div className="history-list"><article><span className="history-date"><strong>15</strong><small>AGO</small></span><div><span className="pill attended"><Icon name="check" size={13} /> Realizada</span><h2>Psicología</h2><p>Dr. Roberto Soto · 15:30 hrs.</p></div><button aria-label="Ver detalle"><Icon name="chevron" /></button></article><article><span className="history-date"><strong>02</strong><small>JUL</small></span><div><span className="pill attended"><Icon name="check" size={13} /> Realizada</span><h2>Servicio médico</h2><p>Dra. Javiera León · 11:00 hrs.</p></div><button aria-label="Ver detalle"><Icon name="chevron" /></button></article></div><p className="history-disclaimer"><Icon name="shield" size={16} /> Información de demostración. Este prototipo no almacena datos médicos.</p></main>
+
+  const nextBooking = bookings[0]
+  return <main className="page-shell dashboard"><section className="welcome"><div><span className="eyebrow">DOMINGO, 6 DE SEPTIEMBRE</span><h1>Hola, {USER.name} <span>👋</span></h1><p>Tu bienestar universitario, en un solo lugar.</p></div><div className="availability-chip"><span className="pulse" /><div><strong>Atención disponible</strong><small>Hay horas para esta semana</small></div></div></section><div className="home-grid"><section className="home-action"><span className="home-action-icon"><Icon name="calendar" size={26} /></span><div><span className="eyebrow">ACCESO RÁPIDO</span><h2>Agenda tu próxima atención</h2><p>Encuentra un servicio, profesional y horario en pocos pasos.</p><button className="inline-primary" onClick={() => onNavigate('reserve')}>Reservar nueva hora <Icon name="arrow" size={17} /></button></div></section><section className="home-next"><div className="section-heading"><h2>Tu próxima hora</h2><button className="text-link" onClick={() => onNavigate('appointments')}>Ver todas</button></div>{nextBooking ? <BookingCard booking={nextBooking} onCancel={onCancel} /> : <div className="empty-state compact-empty"><h3>Sin reservas próximas</h3><p>Puedes agendar desde la pestaña Reservar.</p></div>}</section></div><section className="home-shortcuts"><button onClick={() => onNavigate('appointments')}><span><Icon name="clock" /></span><div><strong>Mis horas</strong><small>Administra tus reservas</small></div><Icon name="chevron" /></button><button onClick={() => onNavigate('history')}><span><Icon name="check" /></span><div><strong>Historial</strong><small>Revisa atenciones anteriores</small></div><Icon name="chevron" /></button></section></main>
+}
+
+function ProfessionalsView({ service, onBack, onSelect }) {
+  const professionals = PROFESSIONALS[service.id] || []
+  const [profile, setProfile] = useState(null)
+  return <main className="page-shell flow-page"><button className="back-button" onClick={onBack}><Icon name="back" size={19} /> Volver a servicios</button><Progress step={2} /><div className="flow-heading"><span className={`service-icon ${service.tone}`}><Icon name={service.icon} size={23} /></span><div><span className="eyebrow">{service.name}</span><h1>Elige un profesional</h1><p>Revisa su perfil o consulta directamente sus horas disponibles.</p></div></div><div className="professional-grid">{professionals.map(prof => <article className="professional-card" key={prof.id}><span className="professional-avatar" style={{ '--avatar': prof.color }}>{prof.initials}</span><span className="professional-info"><strong>{prof.name}</strong><small>{prof.role}</small><em><span className="status-dot" /> Disponible {prof.next}</em></span><span className="professional-actions"><button className="profile-button" onClick={() => setProfile(prof)}>Ver perfil</button><button className="select-cta" onClick={() => onSelect(prof)}>Ver horas <Icon name="arrow" size={17} /></button></span></article>)}</div><div className="prototype-note"><Icon name="shield" size={18} /><p><strong>Información de prototipo</strong> Los perfiles, profesionales y horarios son datos de demostración.</p></div>
+  {profile && <div className="profile-overlay" role="presentation" onMouseDown={() => setProfile(null)}><section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={event => event.stopPropagation()}><button className="modal-close" onClick={() => setProfile(null)} aria-label="Cerrar perfil">×</button><div className="profile-hero"><span className="professional-avatar profile-avatar-large" style={{ '--avatar': profile.color }}>{profile.initials}</span><div><span className="eyebrow">FICHA PROFESIONAL</span><h2 id="profile-title">{profile.name}</h2><p>{profile.role}</p></div></div><div className="profile-facts"><div><small>Modalidad</small><strong>Presencial</strong></div><div><small>Duración</small><strong>45 minutos</strong></div><div><small>Próxima hora</small><strong>{profile.next}</strong></div></div><div className="profile-section"><h3>Sobre el profesional</h3><p>{PROFILE_DETAILS[profile.id].bio}</p></div><div className="profile-section"><h3>Áreas de atención</h3><div className="area-chips">{PROFILE_DETAILS[profile.id].areas.map(area => <span key={area}>{area}</span>)}</div></div><div className="profile-contact"><p><small>Correo institucional</small><strong>{PROFILE_DETAILS[profile.id].email}</strong></p><p><small>Lugar de atención</small><strong>Edificio F · Campus Casa Central</strong></p></div><button className="primary-button profile-cta" onClick={() => onSelect(profile)}>Ver horas disponibles <Icon name="arrow" size={17} /></button></section></div>}
+  </main>
+}
+
+function ScheduleView({ service, professional, onBack, onHome, onConfirm }) {
+  const [day, setDay] = useState(DAYS[0]); const [time, setTime] = useState(null)
+  return <main className="page-shell flow-page schedule-page"><button className="back-button" onClick={onBack}><Icon name="back" size={19} /> Cambiar profesional</button><Progress step={3} /><div className="flow-heading simple"><div><span className="eyebrow">{service.name}</span><h1>Elige fecha y hora</h1><p>Horarios disponibles con {professional.name}.</p></div></div><div className="schedule-layout">
+    <section className="calendar-card"><div className="professional-summary"><span className="professional-avatar small" style={{ '--avatar': professional.color }}>{professional.initials}</span><div><strong>{professional.name}</strong><small>{professional.role}</small></div><span className="online-status"><span /> Disponible</span></div><div className="calendar-section"><div className="calendar-title"><div><h2>Septiembre 2026</h2><p>Selecciona un día disponible</p></div><span>4 días disponibles</span></div><div className="days-row">{DAYS.map(item => <button key={item.iso} className={`day-button ${day.iso === item.iso ? 'selected' : ''}`} onClick={() => { setDay(item); setTime(null) }}><span>{item.weekday}</span><strong>{item.day}</strong><small>{item.month}</small></button>)}</div></div><div className="times-section"><div className="times-heading"><h2>Horas disponibles</h2><span><span className="status-dot" /> {TIMES.length} horarios</span></div><div className="times-grid">{TIMES.map(item => <button key={item} className={time === item ? 'selected' : ''} onClick={() => setTime(item)}>{item}</button>)}</div></div></section>
+    <aside className="summary-card"><span className="eyebrow">RESUMEN DE TU HORA</span><h2>{service.name}</h2><div className="summary-list"><div><span><Icon name="heart" /></span><p><small>Profesional</small><strong>{professional.name}</strong></p></div><div><span><Icon name="calendar" /></span><p><small>Fecha</small><strong>{day.label}</strong></p></div><div><span><Icon name="clock" /></span><p><small>Hora</small><strong>{time ? `${time} hrs.` : 'Selecciona un horario'}</strong></p></div><div><span><Icon name="location" /></span><p><small>Lugar</small><strong>Edificio F · Casa Central</strong></p></div></div><button className="primary-button" disabled={!time} onClick={() => onConfirm(day, time)}><Icon name="check" size={18} /> Confirmar reserva</button><button className="secondary-button" onClick={onHome}>Cancelar y volver</button><p className="privacy-copy"><Icon name="shield" size={15} /> Esta es una reserva simulada para el prototipo.</p></aside>
+  </div></main>
+}
+
+function SuccessToast({ booking, onClose }) {
+  if (!booking) return null
+  return <div className="toast" role="status"><span><Icon name="check" size={19} strokeWidth={2.5} /></span><div><strong>Hora reservada</strong><p>{booking.dateShort} · {booking.time} hrs.</p></div><button onClick={onClose} aria-label="Cerrar">×</button></div>
+}
+
+export default function App() {
+  const [view, setView] = useState('dashboard'); const [section, setSection] = useState('home'); const [service, setService] = useState(null); const [professional, setProfessional] = useState(null); const [toastBooking, setToastBooking] = useState(null)
+  const [bookings, setBookings] = useState([{ id: 101, service: 'Bienestar estudiantil', professional: 'Eliana Ponce', dateLabel: 'Jueves 10 de septiembre', dateShort: '10 sep 2026', time: '10:00' }])
+  const pageTitle = useMemo(() => view === 'dashboard' ? `${section === 'home' ? 'Inicio' : section === 'reserve' ? 'Reservar' : section === 'appointments' ? 'Mis horas' : 'Historial'} · Bienestar USM` : `Reservar · ${service?.name || 'Bienestar USM'}`, [view, section, service]); document.title = pageTitle
+  const navigate = target => { setView('dashboard'); setSection(target); setService(null); setProfessional(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const goHome = () => navigate('home')
+  const startBooking = selected => { setService(selected); setView('professionals'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const selectProfessional = selected => { setProfessional(selected); setView('schedule'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const confirmBooking = (day, time) => { const next = { id: Date.now(), service: service.name, professional: professional.name, dateLabel: day.label.charAt(0).toUpperCase() + day.label.slice(1), dateShort: `${day.day} sep 2026`, time }; setBookings(current => [...current, next]); setToastBooking(next); goHome() }
+  return <div className="app"><AppHeader activeSection={view === 'dashboard' ? section : 'reserve'} bookingCount={bookings.length} onNavigate={navigate} />{view === 'dashboard' && <Dashboard section={section} bookings={bookings} onStart={startBooking} onCancel={id => setBookings(current => current.filter(item => item.id !== id))} onNavigate={navigate} />}{view === 'professionals' && <ProfessionalsView service={service} onBack={() => navigate('reserve')} onSelect={selectProfessional} />}{view === 'schedule' && <ScheduleView service={service} professional={professional} onBack={() => setView('professionals')} onHome={goHome} onConfirm={confirmBooking} />}<footer><span>© 2026 Universidad Técnica Federico Santa María</span><span>Prototipo de reservas · Proyecto 3</span></footer><SuccessToast booking={toastBooking} onClose={() => setToastBooking(null)} /></div>
+}
